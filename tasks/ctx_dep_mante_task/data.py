@@ -6,10 +6,11 @@ class CtxDepManteTask(Task):
     def __init__(self, root: str = "", version: str = "vanilla", duration: float = 500, delta_t: float = 2,
                            num_trials: int = 100, seed: int = 0, motion_coh: float = None, color_coh: float = None,
                            coherences: list = None, scale_coherences: float = 0.1, scale_context: float = 0.2,
-                           scale_output: float = 0.2, fixation_duration: float = 50, fixation_std: float = 0.2, 
-                           input_start_time: float = 100, input_end_time: float = 400, initial_silence: float = 50,
-                           output_delay: float = 50, input_duration: float = 80, add_noise: bool = False,
-                           noise_scale: float = 0.03, *args, **kwargs):
+                           scale_output: float = 0.2, fixation_duration: float = 50, varying_fixation: bool = False,
+                           fixation_std: float = 10, loosen_time: float = 8, loosen_after: float = 10,
+                           input_start_time: float = 100, input_end_time: float = 400, 
+                           initial_silence: float = 50, output_delay: float = 50, input_duration: float = 80, 
+                           add_noise: bool = False, noise_scale: float = 0.03, *args, **kwargs):
 
         self.seed = seed
         np.random.seed(self.seed)
@@ -39,10 +40,13 @@ class CtxDepManteTask(Task):
         self.fixation_std = fixation_std
         self.scale_output = scale_output
         self.input_duration = input_duration
+        self.varying_fixation = varying_fixation
+        self.loosen_time = loosen_time
+        self.loosen_after = loosen_after
         
         
         #Available versions can be seen here.
-        self.available_versions = {"vanilla","random_input"}
+        self.available_versions = {"vanilla","random_input","loosen_coherence"}
         
         """Input dimension is 4. This is because in this task, there are two stimuli, color and motion. And each corresponding can be activated in a given trial which constitutes third and fourth dimensions."""
         self.input_dims = 4
@@ -70,6 +74,7 @@ class CtxDepManteTask(Task):
         self.output_delay_discrete = int(self.output_delay // self.delta_t)
         self.fixation_duration_discrete = int(self.fixation_duration // self.delta_t)
         self.input_duration_discrete = int(self.input_duration // self.delta_t)
+        self.loosen_after_discrete = int(self.loosen_after // self.delta_t)
         
     def _check_input_validity(self):
         # Make sure the input is correct
@@ -99,9 +104,11 @@ class CtxDepManteTask(Task):
         
         
         if self.version == "vanilla":
-            inputs, outputs, ctx_decision, input_start = self.gen_vanilla_input_output(inputs, outputs)
+            inputs, outputs, ctx_decision, input_start, fixation_duration = self.gen_vanilla_input_output(inputs, outputs)
         elif self.version == "random_input":
-            inputs, outputs, ctx_decision, input_start = self.gen_random_input_output(inputs, outputs)
+            inputs, outputs, ctx_decision, input_start, fixation_duration = self.gen_random_input_output(inputs, outputs)
+        elif self.version == "loosen_coherence":
+            inputs, outputs, ctx_decision, input_start, fixation_duration = self.gen_loosen_coherence_output(inputs, outputs)
             
            
         
@@ -110,7 +117,7 @@ class CtxDepManteTask(Task):
             inputs[:, 0] +=noise #Adding noise to the motion coherence
             inputs[:, 1] +=noise #Adding noise to the color coherence
             
-        return inputs, outputs, ctx_decision, input_start
+        return inputs, outputs, ctx_decision, input_start, fixation_duration
     
     def gen_vanilla_input_output(self, inputs, outputs):
         
@@ -129,21 +136,28 @@ class CtxDepManteTask(Task):
         else:
             color_coh = self.color_coh
             
+        #Setting the fixation duration parameter.
+        if self.varying_fixation: #If True
+            fixation_duration = int(np.random.normal(self.fixation_duration_discrete, self.fixation_std))
+        else:
+            fixation_duration = self.fixation_duration_discrete
+            
         input_start = self.input_start_time_discrete + self.initial_silence_discrete
         inputs[input_start:self.input_end_time_discrete, 0] = motion_coh * self.scale_coherences #Motion coherence in dimension 0.
         inputs[input_start:self.input_end_time_discrete, 1] = color_coh * self.scale_context #Color coherence in dimension 1.
 
         
+            
         #Context is selected.
         if ctx_decision == 1:# Motion coherence is selected as the decision.
-            inputs[input_start + self.fixation_duration_discrete:self.input_end_time_discrete, 2] = 1 * self.scale_context
+            inputs[input_start + fixation_duration:self.input_end_time_discrete, 2] = 1 * self.scale_context
             outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (motion_coh * self.scale_context) > 0 else -1*self.scale_output
            
         else: #ctx_decision == 2. Color coherence is selected as the decision.
-            inputs[input_start + self.fixation_duration_discrete:self.input_end_time_discrete, 3] = 1 * self.scale_context
+            inputs[input_start + fixation_duration:self.input_end_time_discrete, 3] = 1 * self.scale_context
             outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (color_coh * self.scale_context) > 0 else -1*self.scale_output
             
-        return inputs, outputs, ctx_decision, input_start
+        return inputs, outputs, ctx_decision, input_start, fixation_duration
     
     def gen_random_input_output(self, inputs, outputs):
         
@@ -174,17 +188,71 @@ class CtxDepManteTask(Task):
         inputs[input_start:input_start + self.input_duration_discrete, 0] = motion_coh * self.scale_coherences #Motion coherence in dimension 0.
         inputs[input_start:input_start + self.input_duration_discrete, 1] = color_coh * self.scale_context #Color coherence in dimension 1.
 
+        if self.varying_fixation: #If True
+            fixation_duration = int(np.random.normal(self.fixation_duration_discrete, self.fixation_std))
+        else:
+            fixation_duration = self.fixation_duration_discrete
+        
         
         #Context is selected.
         if ctx_decision == 1:# Motion coherence is selected as the decision.
-            inputs[input_start + self.fixation_duration_discrete:self.input_end_time_discrete, 2] = 1 * self.scale_context
+            inputs[input_start + fixation_duration:self.input_end_time_discrete, 2] = 1 * self.scale_context
             outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (motion_coh * self.scale_context) > 0 else -1*self.scale_output
            
         else: #ctx_decision == 2. Color coherence is selected as the decision.
-            inputs[input_start + self.fixation_duration_discrete:self.input_end_time_discrete, 3] = 1 * self.scale_context
+            inputs[input_start + fixation_duration:self.input_end_time_discrete, 3] = 1 * self.scale_context
             outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (color_coh * self.scale_context) > 0 else -1*self.scale_output
             
-        return inputs, outputs, ctx_decision, input_start
+        return inputs, outputs, ctx_decision, input_start, fixation_duration
+
+    def gen_loosen_coherence_output(self, inputs, outputs):
+        #Context decision is made.
+        ctx_decision = np.random.choice([1, 2])
+        
+        #Motion Coherence selection
+        if self.motion_coh == None:#if none, chose randomly
+            motion_coh = self.coherences[np.random.randint(0, len(self.coherences)-1)]
+        else:
+            motion_coh = self.motion_coh
+            
+        #Color Coherence  selection
+        if self.color_coh == None:#if none, chose randomly
+            color_coh = self.coherences[np.random.randint(0, len(self.coherences)-1)]
+        else:
+            color_coh = self.color_coh
+            
+        input_start = self.input_start_time_discrete + self.initial_silence_discrete
+        
+        #Maintain for loosen_after.
+        inputs[input_start:input_start + self.loosen_after_discrete, 0] = motion_coh * self.scale_coherences #Motion coherence in dimension 0.
+        inputs[input_start:input_start + self.loosen_after_discrete, 1] = color_coh * self.scale_context #Color coherence in dimension 1.
+
+
+
+        x = np.linspace(0,(self.input_end_time_discrete-input_start - self.loosen_after_discrete)//self.delta_t,self.input_end_time_discrete-input_start - self.loosen_after_discrete )
+        #Decay period
+        inputs[input_start + self.loosen_after_discrete:self.input_end_time_discrete, 0] = np.exp(-x/self.loosen_time)*(motion_coh * self.scale_coherences) #Motion coherence in dimension 0.
+        inputs[input_start + self.loosen_after_discrete:self.input_end_time_discrete, 1] = np.exp(-x/self.loosen_time)*(color_coh * self.scale_context) #Color coherence in dimension 1.
+
+      
+        #outputs[start+self.input_discrete:, K] = sign*np.exp(-x/self.decay_time)
+
+        #Setting the fixation duration parameter.
+        if self.varying_fixation: #If True
+            fixation_duration = int(np.random.normal(self.fixation_duration_discrete, self.fixation_std))
+        else:
+            fixation_duration = self.fixation_duration_discrete
+            
+        #Context is selected.
+        if ctx_decision == 1:# Motion coherence is selected as the decision.
+            inputs[input_start + fixation_duration:self.input_end_time_discrete, 2] = 1 * self.scale_context
+            outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (motion_coh * self.scale_context) > 0 else -1*self.scale_output
+           
+        else: #ctx_decision == 2. Color coherence is selected as the decision.
+            inputs[input_start + fixation_duration:self.input_end_time_discrete, 3] = 1 * self.scale_context
+            outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (color_coh * self.scale_context) > 0 else -1*self.scale_output
+            
+        return inputs, outputs, ctx_decision, input_start, fixation_duration
         
         
     
@@ -193,17 +261,19 @@ class CtxDepManteTask(Task):
         outputs = np.zeros((batch_size, self.T, self.output_dims))
         ctx_decision_list = []
         input_start_list = []
+        fixation_duration_list = []
         
         for batch in range(batch_size):
-            inputs[batch], outputs[batch], ctx_decision, input_start = self.gen_input_output()
+            inputs[batch], outputs[batch], ctx_decision, input_start, fixation_duration = self.gen_input_output()
             ctx_decision_list.append(ctx_decision)
             input_start_list.append(input_start)
+            fixation_duration_list.append(fixation_duration)
             
-        return inputs, outputs, ctx_decision_list, input_start_list
+        return inputs, outputs, ctx_decision_list, input_start_list, fixation_duration_list
     
     
     def visualize_task(self, figsize=(16, 18), show_legend: bool = True):
-        inputs, outputs, ctx_decisions, input_start = self.gen_input_output()
+        inputs, outputs, ctx_decisions, input_start, fixation_duration = self.gen_input_output()
         
         time = np.arange(0, self.duration, self.delta_t)
 
@@ -219,11 +289,9 @@ class CtxDepManteTask(Task):
         axs[0].set_ylabel('Coherence Strength')
         axs[0].axvline(input_start_time, color='m', linestyle='--', label='Input Start/End Time')
         axs[0].axvline(input_end_time, color='m', linestyle='--')
-        # axs[0].axvspan(input_start_time + self.initial_silence,
-        #                input_start_time + self.initial_silence + self.fixation_duration,
-        #                color='green', alpha=0.3, label="Fixation period")
+
         axs[0].axvspan(input_start*self.delta_t,
-                       input_start*self.delta_t + self.fixation_duration,
+                       input_start*self.delta_t + self.delta_t*fixation_duration,
                        color='green', alpha=0.3, label="Fixation period")
         if show_legend:
             axs[0].legend(loc='lower left', bbox_to_anchor=(0, 0), fontsize='small')
@@ -235,11 +303,9 @@ class CtxDepManteTask(Task):
         axs[1].set_ylabel('Coherence Strength')
         axs[1].axvline(input_start_time, color='m', linestyle='--', label='Input Start/End Time')
         axs[1].axvline(input_end_time, color='m', linestyle='--')
-        # axs[1].axvspan(input_start_time + self.initial_silence,
-        #                input_start_time + self.initial_silence + self.fixation_duration,
-        #                color='green', alpha=0.3, label="Fixation period")
+       
         axs[1].axvspan(input_start*self.delta_t,
-                       input_start*self.delta_t + self.fixation_duration,
+                       input_start*self.delta_t + self.delta_t*fixation_duration,
                        color='green', alpha=0.3, label="Fixation period")
         if show_legend:
             axs[1].legend(loc='lower left', bbox_to_anchor=(0, 0), fontsize='small')
@@ -292,7 +358,7 @@ class CtxDepManteTask(Task):
 if __name__ == '__main__':
     np.random.seed(None)
     seed = np.random.randint(0,100)
-    task = CtxDepManteTask(seed=seed, version = "random_input",add_noise = False)
+    task = CtxDepManteTask(seed=seed, version = "loosen_coherence",add_noise = False)
     task.visualize_task()
         
         
