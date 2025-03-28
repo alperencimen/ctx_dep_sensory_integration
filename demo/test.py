@@ -32,7 +32,8 @@ task_kwargs = {
     'root': '', 
     'version': version, 
     'duration': 500, 
-    'delta_t': 2
+    'delta_t': 2,
+    'fixation_duration':200
 }
 
 dataset = load_task(task_name, **task_kwargs)
@@ -44,7 +45,7 @@ hidden_dims = 50
 K = 50
 tau = 10
 lr = 0.0002
-epoch = 100
+epoch = 10000
 
 # Don't change unless needed
 patience = epoch//10
