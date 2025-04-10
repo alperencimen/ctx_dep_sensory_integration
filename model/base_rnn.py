@@ -1,3 +1,8 @@
+'''
+This is a library containing the customRNN class
+as well as a few tasks to test it on.
+This is for the CoRNN project.
+'''
 
 # import libraries
 import torch
@@ -6,12 +11,12 @@ import numpy as np
 
 class BaseRNN(nn.Module):
     '''
-    This is a Leaky-RNN
-    It's dynamical equation is:
+    This is the custom RNN class that CoRNN assumes
+    It's dynamical equation is
     h(t) = (1 - alpha) * h(t-1) + alpha * tanh(W_in * x(t-1) + W_rec * h(t-1))
     '''
     def __init__(self, input_dims, hidden_dims, output_dims, K, reg_ratio = 0.5, g=None,alpha = 0.5, device="cpu", loss_fn=nn.MSELoss(),seed =0):
-        super(BaseRNN, self).__init__()
+        super().__init__()
         np.random.seed(seed)
         torch.manual_seed(seed)
         self.input_dims = input_dims
@@ -48,13 +53,13 @@ class BaseRNN(nn.Module):
         # move everything to device
         self.to(device)
 
-    def forward(self,x,h):
+    def forward(self,x,h,P,target):
         if self.K == self.hidden_dims:
-            return self.forward_full(x, h)
+            return self.forward_full(x, h,P,target)
         else:
-            return self.forward_lr(x, h)
+            return self.forward_lr(x, h,P,target)
         
-    def forward_full(self, x, h):
+    def forward_full(self, x, h, P, target):
         """
         The shape of x is (batch_size, seq_len, input_dims)
         The shape of h is (batch_size, hidden_dims)
@@ -65,7 +70,7 @@ class BaseRNN(nn.Module):
         outputs = []
         reg = 0;
         n_reg = round(h.shape[1]*self.reg_ratio)
-        z = torch.zeros_like(h);
+        z = torch.zeros_like(h)
         
         for t in range(x.size(1)):
             
@@ -83,12 +88,57 @@ class BaseRNN(nn.Module):
                 reg = reg + torch.sum(( z[:,:n_reg] - z_old[:,:n_reg])**2)
 
             # Compute the output at each timestep
-            output = torch.matmul(h, self.W_out)
+            output = torch.matmul(h, self.W_out.data.to(h.dtype))
             outputs.append(output)
-        self.tcr_reg = reg/x.size(1)/h.shape[0]/n_reg
-        return outputs, hidden_states
+            
+            e_ =  output - target[:,t]
+            
+            upper3 = torch.matmul(P,h.T)
+            upper2 = torch.matmul(upper3, h)
+            upper = torch.matmul(upper2,P)
+            
+            bottom2 = torch.matmul(h,P)
+            bottom1 = torch.matmul(h.T,bottom2)
+            bottom = 1 + bottom1
 
-    def forward_lr(self, x, h):
+            
+            P = P - torch.div(upper,bottom)
+
+           
+            dummy = torch.matmul(P,h.T)
+
+
+            #self.W_out.data += torch.matmul(dummy,e_.to(h.dtype))
+            #self.W_out.data -= torch.matmul(torch.matmul(e_.T.to(h.dtype),P),h).T
+            self.W_out.data -= torch.matmul(dummy,e_.to(dummy.dtype))
+            
+            #print(torch.matmul(torch.matmul(e_.T.to(h.dtype),P),h).T)
+            # print(torch.mean(torch.matmul(torch.matmul(e_.T.to(h.dtype),P),h).T))
+            # print(torch.mean(self.W_out))
+
+            
+
+
+            
+            # e+
+            z_new = torch.matmul(h,self.W_out)
+            e_plus = z_new - target[:,t]
+            
+            P = P.detach()
+            P.requires_grad_(False)
+            
+            e_ = e_.detach()
+            e_.requires_grad_(False)
+            
+            e_plus = e_plus.detach()
+            e_plus.requires_grad_(False)
+                  
+
+        self.tcr_reg = reg / x.size(1) / h.shape[0] / n_reg
+        return outputs, hidden_states, P  # Return updated P
+
+
+    def forward_lr(self, x, h, P ,target):
         """
         The shape of x is (batch_size, seq_len, input_dims)
         The shape of h is (batch_size, hidden_dims)
@@ -110,9 +160,51 @@ class BaseRNN(nn.Module):
             # Compute the output at each timestep
             output = torch.matmul(h, self.W_out)
             outputs.append(output)
+            
+            e_ =  output - target[:,t]
+            
+            upper3 = torch.matmul(P,h.T)
+            upper2 = torch.matmul(upper3, h)
+            upper = torch.matmul(upper2,P)
+            
+            bottom2 = torch.matmul(h,P)
+            bottom1 = torch.matmul(h.T,bottom2)
+            bottom = 1 + bottom1
+
+            
+            P = P - torch.div(upper,bottom)
+
+           
+            dummy = torch.matmul(P,h.T)
+
+
+            #self.W_out.data += torch.matmul(dummy,e_.to(h.dtype))
+            #self.W_out.data -= torch.matmul(torch.matmul(e_.T.to(h.dtype),P),h).T
+            self.W_out.data -= torch.matmul(dummy,e_.to(dummy.dtype))
+            
+            #print(torch.matmul(torch.matmul(e_.T.to(h.dtype),P),h).T)
+            # print(torch.mean(torch.matmul(torch.matmul(e_.T.to(h.dtype),P),h).T))
+            # print(torch.mean(self.W_out))
+
+            
+
+
+            
+            # e+
+            z_new = torch.matmul(h,self.W_out)
+            e_plus = z_new - target[:,t]
+            
+            P = P.detach()
+            P.requires_grad_(False)
+            
+            e_ = e_.detach()
+            e_.requires_grad_(False)
+            
+            e_plus = e_plus.detach()
+            e_plus.requires_grad_(False)
         
         self.tcr_reg = reg/x.size(1)/h.shape[0]/n_reg
-        return outputs, hidden_states
+        return outputs, hidden_states, P
 
     def get_params(self):
         # return the weights of the network, as numpy arrays
@@ -129,25 +221,35 @@ class BaseRNN(nn.Module):
                 'alpha': self.alpha}
 
     
-    def run_rnn(self, inputs, device="cpu",seed = None):
+    def run_rnn(self, inputs,P,target, device="cpu",seed = None):
         if seed is None:
             seed = self.seed
         np.random.seed(seed)
         torch.manual_seed(seed)
         
+        # P = np.eye(model.hidden_dims).astype(np.float32)
+        # P = torch.from_numpy(P).to(model.device)
+
+        # P = P.detach()
+        # P.requires_grad_(False)
+        # P = P / 1000
+        
         self.eval()
         with torch.no_grad():
             # inputs and outputs are numpy arrays
             x = torch.from_numpy(inputs).float() # shape (batch_size, seq_len, input_dims)
+            target = torch.from_numpy(target).float()
+
     
             # move x,y,h to device
             x = x.to(device)
+            target = target.to(device)
     
             # Forward pass
             batch_size = x.shape[0]
             h = torch.randn(batch_size, self.hidden_dims)
             h = h.to(device)
-            output, h = self(x, h)
+            output, h,P = self(x, h,P,target)
             output = torch.stack(output, dim=1)
             h = torch.stack(h, dim=1) # shape (batch_size, seq_len, hidden_dims)
     

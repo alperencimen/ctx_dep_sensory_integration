@@ -16,7 +16,7 @@ class CtxDepManteTask(Task):
         np.random.seed(self.seed)
         
         if coherences is None:#If any of color and/or motion contexts are not specified, then, they will be chosen randonmly among 'coherences'.
-            self.coherences = [-4, -2, -1, 1, 2, 4]
+            self.coherences = [-8, -4, -2, -1, 1, 2, 4, 8]
         else:
             self.coherences = coherences
             
@@ -92,10 +92,10 @@ class CtxDepManteTask(Task):
         assert (self.fixation_std >= 0), f"fixation_std cannot be negative. Given: {self.fixation_std}"
         if self.color_coh is not None:
             assert (self.color_coh != 0), "color_coh cannot be equal to 0."
-            assert all(isinstance(self.color_coh, (int, float)) ),f"color_coh contains non-numeric elements! Given: {self.color_coh}"
+            assert (isinstance(self.color_coh, (int, float)) ),f"color_coh contains non-numeric elements! Given: {self.color_coh}"
         if self.motion_coh is not None:
             assert (self.motion_coh != 0), "motion_coh cannot be equal to 0."
-            assert all(isinstance(self.motion_coh, (int, float)) ),f"motion_coh contains non-numeric elements! Given: {self.motion_coh}"
+            assert (isinstance(self.motion_coh, (int, float)) ),f"motion_coh contains non-numeric elements! Given: {self.motion_coh}"
         if (self.version == "random_coherence"):
             assert (self.coherence_duration >= self.fixation_duration), f"Input duration must be greater or equal to fixatation duration. Given Input Duration: {self.coherence_duration} and Given Fixation Duration: {self.fixation_duration}"
             assert (self.coherence_duration >= 0 and self.coherence_duration < self.input_end_time - (self.input_start_time + self.initial_silence)), f"Input duration must be chosen such that it is suitable for input generation. It must be non-negative and smaller than {self.input_end_time - (self.input_start_time + self.initial_silence)}. However, given {self.coherence_duration}"
@@ -130,15 +130,15 @@ class CtxDepManteTask(Task):
         else:
             fixation_duration = self.fixation_duration_discrete
             
-        #Context decision is made. If 1 is chosen--> motion. If 2 is chosen--> Color is selected as the context.
-        ctx_decision = np.random.choice([1, 2])
+        #Context decision is made. If 1 is chosen--> motion. If -1 is chosen--> Color is selected as the context.
+        ctx_decision = np.random.choice([1, -1])
         
         if (self.version in {"vanilla", "loosen_coherence"}):
             #Context is created.
             if ctx_decision == 1:# Motion coherence is selected as the decision.
                 inputs[self.input_start_time_discrete + self.initial_silence_discrete + fixation_duration:self.input_end_time_discrete, 2] = 1 * self.scale_context
                 outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (motion_coh * self.scale_context) > 0 else -1*self.scale_output
-            else: #ctx_decision == 2. Color coherence is selected as the decision.
+            else: #ctx_decision == -1. Color coherence is selected as the decision.
                 inputs[self.input_start_time_discrete + self.initial_silence_discrete + fixation_duration:self.input_end_time_discrete, 3] = 1 * self.scale_context
                 outputs[self.input_end_time_discrete + self.output_delay_discrete: ,0] = 1*self.scale_output if (color_coh * self.scale_context) > 0 else -1*self.scale_output
                 
@@ -154,8 +154,10 @@ class CtxDepManteTask(Task):
             noise = np.random.normal(0, self.noise_scale, self.T)
             inputs[:, 0] +=noise #Adding noise to the motion coherence
             inputs[:, 1] +=noise #Adding noise to the color coherence
-            
-        return inputs, outputs, ctx_decision, input_start, fixation_duration
+        
+        array_output = 1*self.scale_output if (color_coh * self.scale_context) > 0 else -1*self.scale_output
+        decision_array = np.array((motion_coh * self.scale_coherences ,color_coh * self.scale_coherences, ctx_decision * self.scale_context, array_output))
+        return inputs, outputs, ctx_decision, input_start, fixation_duration, decision_array
     
     def gen_vanilla_input_output(self, inputs, outputs, ctx_decision, motion_coh, color_coh, fixation_duration):
         input_start = self.input_start_time_discrete + self.initial_silence_discrete
@@ -206,17 +208,19 @@ class CtxDepManteTask(Task):
         ctx_decision_list = []
         input_start_list = []
         fixation_duration_list = []
+        decision_array_list = []
         
         for batch in range(batch_size):
-            inputs[batch], outputs[batch], ctx_decision, input_start, fixation_duration = self.gen_input_output()
+            inputs[batch], outputs[batch], ctx_decision, input_start, fixation_duration, decision_array = self.gen_input_output()
             ctx_decision_list.append(ctx_decision)
             input_start_list.append(input_start)
             fixation_duration_list.append(fixation_duration)
+            decision_array_list.append(decision_array)
             
-        return inputs, outputs, ctx_decision_list, input_start_list, fixation_duration_list
+        return inputs, outputs, ctx_decision_list, input_start_list, fixation_duration_list, decision_array_list
     
     def visualize_task(self, figsize=(16, 18), show_legend: bool = True):
-        inputs, outputs, ctx_decisions, input_start, fixation_duration = self.gen_input_output()
+        inputs, outputs, ctx_decisions, input_start, fixation_duration, decision_array = self.gen_input_output()
         
         time = np.linspace(0, self.duration, num=inputs.shape[0])
 
@@ -298,7 +302,7 @@ class CtxDepManteTask(Task):
             
     def visualize_rnn_output(self, model, loss=None, label_loss=None):
         # Generate a batch of data with one trial.
-        inputs, expected_outputs, ctx_decision, input_start, fixation_duration = self.data
+        inputs, expected_outputs, ctx_decision, input_start, fixation_duration, decision_array = self.data
         
         input_start = input_start[0]
         fixation_duration = fixation_duration[0]
@@ -382,7 +386,7 @@ class CtxDepManteTask(Task):
 if __name__ == '__main__':
     np.random.seed(None)
     seed = np.random.randint(0,100)
-    task = CtxDepManteTask(seed=seed, version = "random_coherence",add_noise = False)
+    task = CtxDepManteTask(seed=seed, version = "vanilla",add_noise = False,color_coh = 2,motion_coh=5)
     task.visualize_task()
         
         

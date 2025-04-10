@@ -16,8 +16,6 @@ from model import BaseRNN
 from utils import training_loop
 import matplotlib.pyplot as plt
 
-
-
 #%%
 
 #Task name and version
@@ -30,27 +28,34 @@ np.random.seed(default_seed)
      
 task_kwargs = {
     'root': '', 
+    'scale_context': 1,
+    'scale_output': 1,
+    'scale_coherences': 1,
     'version': version, 
     'duration': 500, 
     'delta_t': 2,
-    'fixation_duration':200
+    'fixation_duration':50,
+    'num_trials': 8
 }
 
 dataset = load_task(task_name, **task_kwargs)
 dataset.visualize_task()
+
+np.save(f'task_data/ctx_dep_mante_task_{version}.npy', dataset)
+
 input_dims, output_dims = dataset.get_input_output_dims()
 #%%
 #Model Hyperparameters
-hidden_dims = 50
-K = 50
+hidden_dims = 500
+K = 4
 tau = 10
-lr = 0.0002
-epoch = 10000
+lr = 2e-5
+epoch = 15000
 
 # Don't change unless needed
 patience = epoch//10
 reg_lambda = 1e-3
-device = 'cpu'
+device = 'mps'
 
 default_seed= 1
 torch.manual_seed(default_seed)
@@ -115,3 +120,19 @@ plt.axhline(y=1, color='g', linestyle='--', label="y=1")
 plt.legend()
 plt.savefig(accuracy_training_loss_path)
 plt.show()
+
+#%%
+
+# Save training results (parameters and metrics) to a checkpoint for later use.
+checkpoint_path = f'model_weights/{task_name}_BaseRNN_{hidden_dims}_{K}.pth'
+torch.save({
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'scheduler_state_dict': sched.state_dict(),
+    'train_losses': train_losses,
+    'accuracy': acc,
+    'learning_rates': lrs,
+    'epoch': epoch,
+    'model_kwargs': model_kwargs
+}, checkpoint_path)
+print(f"Trainin parameters are saved to {checkpoint_path}")
