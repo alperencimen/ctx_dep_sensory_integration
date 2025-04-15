@@ -300,7 +300,7 @@ class CtxDepManteTask(Task):
         #plt.savefig(f"CtxDepManteTask{self.version}.pdf")
         plt.tight_layout()
             
-    def visualize_rnn_output(self, model, loss=None, label_loss=None):
+    def visualize_rnn_output(self, model, P, target, loss=None, label_loss=None):
         # Generate a batch of data with one trial.
         inputs, expected_outputs, ctx_decision, input_start, fixation_duration, decision_array = self.data
         
@@ -308,7 +308,7 @@ class CtxDepManteTask(Task):
         fixation_duration = fixation_duration[0]
         ctx_decision = ctx_decision[0]
         
-        predicted_outputs, _ = model.run_rnn(inputs, device=model.device)
+        predicted_outputs, _ = model.run_rnn(inputs = inputs, P = P, target = target, device=model.device)
         
         #plotting for the first trial
         inputs = np.squeeze(inputs[0])

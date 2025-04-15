@@ -34,8 +34,8 @@ task_kwargs = {
     'version': version, 
     'duration': 500, 
     'delta_t': 2,
-    'fixation_duration':50,
-    'num_trials': 8
+    'fixation_duration':60,
+    'num_trials': 50
 }
 
 dataset = load_task(task_name, **task_kwargs)
@@ -45,12 +45,18 @@ np.save(f'task_data/ctx_dep_mante_task_{version}.npy', dataset)
 
 input_dims, output_dims = dataset.get_input_output_dims()
 #%%
+version = "vanilla"
+task = np.load(f'task_data/ctx_dep_mante_task_{version}.npy',allow_pickle=True).item()
+
+
+
+#%%
 #Model Hyperparameters
-hidden_dims = 500
+hidden_dims = 1024
 K = 4
 tau = 10
-lr = 2e-5
-epoch = 15000
+lr = 8e-4
+epoch = 3000
 
 # Don't change unless needed
 patience = epoch//10
@@ -69,7 +75,7 @@ model_kwargs = {
     'K': K, 
     'device': device,
     'alpha': dataset.delta_t/tau, 
-    'g': None,
+    'g': 2,
     'seed': default_seed
 }
 model = BaseRNN(**model_kwargs)
@@ -79,7 +85,7 @@ criterion = nn.MSELoss()
 sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,
                                                    patience=patience, verbose=False)
 batch_size = dataset.data[0].shape[0]
-model, train_losses, acc, lrs = training_loop(model, dataset.data, epoch,
+model, train_losses, acc, lrs, W, P = training_loop(model, dataset, epoch,
                                          batch_size, model_kwargs['device'], optimizer,
                                          sched, criterion,lam = reg_lambda,seed=1)
 
@@ -87,7 +93,7 @@ model, train_losses, acc, lrs = training_loop(model, dataset.data, epoch,
 # Save the visualize_rnn_output plot locally.
 visualize_rnn_output_path = f'demo/{task_name}_visualize_rnn_output.pdf'
 plt.figure()
-dataset.visualize_rnn_output(model, train_losses)
+dataset.visualize_rnn_output(model = model,P = P, target = dataset.data[1], loss=train_losses)
 plt.savefig(visualize_rnn_output_path)
 plt.show()
 plt.close()
@@ -133,6 +139,7 @@ torch.save({
     'accuracy': acc,
     'learning_rates': lrs,
     'epoch': epoch,
-    'model_kwargs': model_kwargs
+    'model_kwargs': model_kwargs,
+    'P': P
 }, checkpoint_path)
 print(f"Trainin parameters are saved to {checkpoint_path}")

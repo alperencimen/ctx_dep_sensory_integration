@@ -48,7 +48,7 @@ def training_loop(model, dataset, num_epochs, batch_size, device, optim, sched=N
 
     P = P.detach()
     P.requires_grad_(False)
-    P = P / 5000
+    P = P / 3000
     
     target = dataset.data[1]
     target = torch.from_numpy(target)
