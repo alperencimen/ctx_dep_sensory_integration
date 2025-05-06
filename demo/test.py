@@ -15,12 +15,14 @@ from tasks import load_task
 from model import BaseRNN
 from utils import training_loop
 import matplotlib.pyplot as plt
+#%%
 
+trial = "Trial5"
 #%%
 
 #Task name and version
 task_name = 'ctx_dep_mante_task'
-version = 'vanilla'
+version = 'loosen_coherence'
 
 
 default_seed = np.random.randint(10)      
@@ -34,26 +36,28 @@ task_kwargs = {
     'version': version, 
     'duration': 500, 
     'delta_t': 2,
-    'fixation_duration':60,
-    'num_trials': 50
+    'fixation_duration':40,
+    'num_trials': 20,
+    'input_end_time':400,
+    'loosen_after':20,
+    'loosen_time':30
 }
 
 dataset = load_task(task_name, **task_kwargs)
 dataset.visualize_task()
 
-np.save(f'task_data/ctx_dep_mante_task_{version}.npy', dataset)
+np.save(f'task_data/{trial}/ctx_dep_mante_task_{version}.npy', dataset)
 
 input_dims, output_dims = dataset.get_input_output_dims()
 #%%
-version = "vanilla"
-task = np.load(f'task_data/ctx_dep_mante_task_{version}.npy',allow_pickle=True).item()
-
+# version = "vanilla"
+# task = np.load(f'task_data/ctx_dep_mante_task_{version}.npy',allow_pickle=True).item()
 
 
 #%%
 #Model Hyperparameters
 hidden_dims = 1024
-K = 4
+K = 1024
 tau = 10
 lr = 8e-4
 epoch = 3000
@@ -91,7 +95,7 @@ model, train_losses, acc, lrs, W, P = training_loop(model, dataset, epoch,
 
 #%%
 # Save the visualize_rnn_output plot locally.
-visualize_rnn_output_path = f'demo/{task_name}_visualize_rnn_output.pdf'
+visualize_rnn_output_path = f'task_train_plots/{trial}/{task_name}_visualize_rnn_output.pdf'
 plt.figure()
 dataset.visualize_rnn_output(model = model,P = P, target = dataset.data[1], loss=train_losses)
 plt.savefig(visualize_rnn_output_path)
@@ -99,7 +103,7 @@ plt.show()
 plt.close()
 
 # Save the accuracy and training loss plot locally.
-accuracy_training_loss_path = f'demo/{task_name}_accuracy_training_loss_plot.pdf'
+accuracy_training_loss_path = f'task_train_plots/{trial}/{task_name}_accuracy_training_loss_plot.pdf'
 plt.figure()
 plt.title("Accuracy and Training Loss")
 plt.plot(acc, label="Accuracy")
@@ -130,7 +134,7 @@ plt.show()
 #%%
 
 # Save training results (parameters and metrics) to a checkpoint for later use.
-checkpoint_path = f'model_weights/{task_name}_BaseRNN_{hidden_dims}_{K}.pth'
+checkpoint_path = f'model_weights/{trial}/{task_name}_BaseRNN_{hidden_dims}_{K}.pth'
 torch.save({
     'model_state_dict': model.state_dict(),
     'optimizer_state_dict': optimizer.state_dict(),

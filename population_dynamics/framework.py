@@ -50,7 +50,7 @@ model_kwargs = {
     'input_dims': input_dims, 
     'hidden_dims': 1024,
     'output_dims': output_dims, 
-    'K': 4, 
+    'K': 1024, 
     'device': 'mps',
     'alpha': task.delta_t/10, 
     'g': 2,
@@ -60,7 +60,7 @@ model_kwargs = {
 model = BaseRNN(**model_kwargs)
 #%%
 """Importing model weights"""
-checkpoint = torch.load("model_weights/ctx_dep_mante_task_BaseRNN_1024_4.pth")
+checkpoint = torch.load("model_weights/ctx_dep_mante_task_BaseRNN_1024_1024.pth")
 
 # Load the stored model parameters.
 model.load_state_dict(checkpoint['model_state_dict'])
