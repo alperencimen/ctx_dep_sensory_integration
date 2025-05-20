@@ -1,1 +1,3 @@
 from utils.train import training_loop
+from utils.latent_circuits import find_latent_circuit,visualize_latent_circuit
+from utils.neuron_activity import find_neuron_activities,visualize_neuron_activities,visualize_sorted_activities

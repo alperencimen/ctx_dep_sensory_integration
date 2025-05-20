@@ -1,1 +1,1 @@
-from model.base_rnn import BaseRNN
+from model.leaky_current_RNN import leaky_current_RNNfrom model.leaky_firing_RNN import leaky_firing_RNN
