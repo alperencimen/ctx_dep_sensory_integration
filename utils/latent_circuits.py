@@ -80,7 +80,7 @@ def find_latent_circuit(model, dataset, K, limits,device):
 
     return Z, kappas, meshgrid
     
-def visualize_latent_circuit(Z, kappas, meshgrid, limits: list, K: int, task_names: str, dataset, rotation: list = [30,30,0], thickness: int = 50, savefig: bool = False, file_name = None, n_components = 3):
+def visualize_latent_circuit(trial,Z, kappas, meshgrid, limits: list, K: int, task_names: str, dataset, rotation: list = [30,30,0], thickness: int = 50, savefig: bool = False, file_name = None, n_components = 3):
     if (K == 1):
         plt.figure()
         plt.title(f"Latent Dynamics | (K = {K}) | Limits: {limits}")
@@ -106,8 +106,8 @@ def visualize_latent_circuit(Z, kappas, meshgrid, limits: list, K: int, task_nam
         centroids = kmeans.cluster_centers_
 
         ax = plt.figure().add_subplot(projection='3d')
-        ax.scatter(kappas[:, 0], kappas[:, 1], kappas[:, 2], c=labels, cmap='rainbow', s = thickness, alpha=0.5)
-        ax.scatter(centroids[:, 0], centroids[:, 1], centroids[:, 2],  s = thickness*5, alpha=1,color="black",label="Centroids")
+        ax.scatter(kappas[:, 0], kappas[:, 1], kappas[:, 2],c="orange", cmap='rainbow', s = thickness, alpha=0.5)
+        #ax.scatter(centroids[:, 0], centroids[:, 1], centroids[:, 2],  s = thickness*5, alpha=1,color="black",label="Centroids")
        
         ax.set_title(f"Latent Kappas (Clustered) | K = {K}")
         ax.text2D(0.5, 0.95, f"Rotation Parameters: {rotation}", ha='center', fontsize=10, transform=ax.transAxes)
@@ -131,10 +131,10 @@ def visualize_latent_circuit(Z, kappas, meshgrid, limits: list, K: int, task_nam
         
         if (n_components == 3):
             ax = plt.figure().add_subplot(projection='3d')
-            ax.scatter(Z_matrix[:,0], Z_matrix[:,1], Z_matrix[:,2], c=labels, cmap='rainbow', s = thickness, alpha=0.5)
-            ax.scatter(centroids[:, 0], centroids[:, 1], centroids[:, 2],  s = thickness*5, alpha=1,color="black",label="Centroids")
+            ax.scatter(Z_matrix[:,0], Z_matrix[:,1], Z_matrix[:,2], c="orange", cmap='rainbow', s = thickness, alpha=0.5)
+            #ax.scatter(centroids[:, 0], centroids[:, 1], centroids[:, 2],  s = thickness*5, alpha=1,color="black",label="Centroids")
            
-            ax.set_title(f"Latent Kappas (Clustered) | K = {K}")
+            ax.set_title(f"Neural Trajectories | K = {K}")
             ax.text2D(0.5, 0.95, f"Rotation Parameters: {rotation}", ha='center', fontsize=10, transform=ax.transAxes)
             ax.text2D(0.5, 0.88, f"# of Principle Components: {n_components}", ha='center', fontsize=8, transform=ax.transAxes)
             plt.legend(loc="lower left", bbox_to_anchor=(-0.07,-0.05), framealpha = 0.6)
@@ -173,9 +173,9 @@ def visualize_latent_circuit(Z, kappas, meshgrid, limits: list, K: int, task_nam
     if (savefig):
         task_names = [task_names]
         if (len(task_names) == 1):
-            base_path = f'rnnzoo/latent_dynamics/single_tasks/{task_names[0]}/'
+            base_path = f'model_latents/{trial}/{task_names[0]}_'
         else:
-            base_path = f'rnnzoo/latent_dynamics/merged_tasks/{task_names}/'
+            base_path = f'model_latents/{trial}/{task_names[0]}_'
         if (file_name == None):
             file_name = f"K{K}_network"
 

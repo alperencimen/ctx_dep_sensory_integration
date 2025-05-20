@@ -41,6 +41,7 @@ def visualize_neuron_activities(activities, dataset, task_names: list, savefig: 
     axs[0].set_ylabel("Output")
     axs[0].set_xlabel("Time (ms)")
     axs[0].grid(True)
+    axs[0].legend()
     
     cax = axs[1].imshow(activities, aspect='auto', cmap='RdBu_r',
                     interpolation='none', vmin=-1, vmax=1)

@@ -1,0 +1,1 @@
+Explained Variance Ratio of Each Component: [0.6309551  0.30790445 0.05632579]
