@@ -15,7 +15,7 @@ task_name = 'ctx_dep_mante_task'
 version = 'vanilla'
 
 
-default_seed = np.random.randint(107601)  
+default_seed = np.random.randint(50612937)  
 np.random.seed(default_seed)
      
 task_kwargs = {
@@ -38,7 +38,7 @@ dataset.visualize_task()
 
 input_dims, output_dims = dataset.get_input_output_dims()
 #%%
-trial = "Trial1"
+trial = "Trial16"
 
 #%%
 #Saving Task Parameters
@@ -52,7 +52,7 @@ hidden_dims = 128
 K = 128
 tau = 10
 lr = 1e-3
-epoch = 300
+epoch = 5000
 
 # Don't change unless needed
 patience = epoch//10
@@ -71,10 +71,10 @@ model_kwargs = {
     'K': K, 
     'device': device,
     'alpha': dataset.delta_t/tau, 
-    'g': None,
+    'g': 1.5,
     'seed': default_seed
 }
-model = BaseRNN(**model_kwargs)
+model = leaky_firing_RNN(**model_kwargs)
 
 optimizer = optim.Adam(model.parameters(), lr= lr)
 criterion = nn.MSELoss()
@@ -89,7 +89,7 @@ model, train_losses, acc, lrs = training_loop(model, dataset, epoch,
                                           batch_size, model_kwargs['device'], optimizer,
                                           sched, criterion,lam = reg_lambda,seed=1)
 #%%
-# Save the visualize_rnn_output plot locally.
+# Save the visualize_rnn_output plot
 visualize_rnn_output_path = f'task_train_plots/{trial}/{task_name}_visualize_rnn_output.pdf'
 
 plt.figure()
@@ -115,7 +115,7 @@ plt.close()
 
 #%%
 #Save training results (parameters and metrics) to a checkpoint for later use.
-checkpoint_path = f'model_weights/{trial}/{task_name}_BaseRNN_{hidden_dims}_{K}.pth'
+checkpoint_path = f'model_weights/{trial}/leaky_firing_RNN_{hidden_dims}_{K}.pth'
 torch.save({
     'model_state_dict': model.state_dict(),
     'optimizer_state_dict': optimizer.state_dict(),
@@ -127,7 +127,4 @@ torch.save({
     'model_kwargs': model_kwargs
 }, checkpoint_path)
 print(f"Trainin parameters are saved to {checkpoint_path}")
-
-
-#%%
 
