@@ -18,7 +18,7 @@ from utils import training_loop
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 #%%
-trial = "Trial1"
+trial = "Trial9"
 
 #%%
 """Importing Task"""
@@ -48,10 +48,10 @@ model_kwargs = {
     'g': 1.5,
     'seed': default_seed
 }
-model = leaky_current_RNN(**model_kwargs)
+model = leaky_firing_RNN(**model_kwargs)
 #%%
 """Loadiing Model Parameters"""
-model_path = f"model_weights/{trial}/leaky_current_RNN_{hidden_dims}_{K}.pth"
+model_path = f"model_weights/{trial}/leaky_firing_RNN_{hidden_dims}_{K}.pth"
 checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint["model_state_dict"])
 
@@ -138,8 +138,8 @@ colors = [cmap(0), cmap(255)]
 
 
 plot_projections(axes[0], trials_full_rank, beta_choice, -beta_motion, colors, '<--Choice-->', '<--Motion-->')
-axes[0].scatter(kappas, np.zeros(kappas.shape[0])+np.random.normal(0,0.0001 * kappas.max(),kappas.shape[0]), color="tab:orange",label="Kappas")
-axes[0].plot(centroids, np.zeros_like(centroids), 'rx', markersize=14, markeredgewidth=3, label="End Points",color="purple")
+#axes[0].scatter(kappas, np.zeros(kappas.shape[0])+np.random.normal(0,0.0001 * kappas.max(),kappas.shape[0]), color="tab:orange",label="Kappas")
+#axes[0].plot(centroids, np.zeros_like(centroids), 'rx', markersize=14, markeredgewidth=3, label="End Points",color="purple")
 # axes[0].scatter(0,0, color="k",s=200,zorder=10, label="Start Point")
 
 axes[0].set_title("Choice vs Motion")
@@ -147,7 +147,7 @@ axes[0].set_title("Choice vs Motion")
 
 plot_projections(axes[1], trials_full_rank, beta_choice, -beta_color, colors, '<--Choice-->', '<--Color-->')
 # axes[1].scatter(kappas, np.zeros(kappas.shape[0])+np.random.normal(0,0.0001 * kappas.max(),kappas.shape[0]), color="tab:orange",label="Kappas")
-axes[1].plot(centroids, np.zeros_like(centroids), 'rx', markersize=14, markeredgewidth=3, label="End Points",color="purple")
+#axes[1].plot(centroids, np.zeros_like(centroids), 'rx', markersize=14, markeredgewidth=3, label="End Points",color="purple")
 # axes[1].scatter(0,0, color="k",s=200,zorder=10, label="Start Point")
 
 axes[1].set_title("Choice vs Color")
@@ -190,3 +190,26 @@ fig.suptitle("Context = Color")
 plt.tight_layout() 
 plt.savefig(f"model_dynamics/{trial}/color_context.pdf")
 plt.show()
+
+#%%
+
+W_rec = model.get_params()["W_rec"]
+#%%
+a,b,c = np.linalg.svd(W_rec)
+
+a = (a*b)[:,:1]
+c = c[:1,:]
+
+kappas = (c @ traj[0,:250,:].T).T
+
+from sklearn.cluster import KMeans
+
+kmeans = KMeans(n_clusters=3, random_state=0, n_init="auto").fit(kappas)
+
+cc = kmeans.cluster_centers_
+
+plt.scatter(kappas, np.zeros(kappas.shape[0]), color="tab:orange",label="Kappas")
+plt.plot(cc, np.zeros_like(cc), 'rx', markersize=14, markeredgewidth=3, label="Start/End Points",color="purple")
+plt.legend()
+plt.title("Latent Trajectories are Projected onto 1-Dimension. (Rank=1)")
+plt.savefig("1D for LFRNNs")

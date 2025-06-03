@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.cluster import KMeans
 #%%
-trial = "Trial16"
+trial = "Trial1"
 
 #%%
 """Importing Task"""
@@ -32,7 +32,7 @@ input_dims, output_dims = dataset.get_input_output_dims()
 """Initialize Model"""
 #Model Hyperparameters
 hidden_dims = 128
-K = 128
+K = 4
 device = 'mps'
 tau=10
 
@@ -49,10 +49,10 @@ model_kwargs = {
     'g': 1.5,
     'seed': default_seed
 }
-model = leaky_firing_RNN(**model_kwargs)
+model = leaky_current_RNN(**model_kwargs)
 #%%
 """Loadiing Model Parameters"""
-model_path = f"model_weights/{trial}/leaky_firing_RNN_{hidden_dims}_{K}.pth"
+model_path = f"model_weights/{trial}/leaky_current_RNN_{hidden_dims}_{K}.pth"
 checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint["model_state_dict"])
 
@@ -234,4 +234,3 @@ axes[0].legend()
 axes[1].legend()
 plt.savefig(f"model_lct_and_dynamics/{trial}/color_context.pdf")
 plt.show()
-#%%
